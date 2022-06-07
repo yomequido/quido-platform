@@ -1,11 +1,16 @@
 package websocket
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/yomequido/quido-platform/platform/database"
+	"github.com/yomequido/quido-platform/platform/models"
+	"github.com/yomequido/quido-platform/platform/tools"
 )
 
 var upgrader = websocket.Upgrader{
@@ -18,7 +23,6 @@ var upgrader = websocket.Upgrader{
 
 // Handler for websockets
 func Handler(ctx *gin.Context) {
-	log.Print(ctx.Request.URL.Host)
 	ws, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
 		log.Panic(err)
@@ -33,6 +37,18 @@ func Handler(ctx *gin.Context) {
 		if err != nil {
 			log.Panic(err)
 		}
+
+		profile := tools.GetProfile(ctx)
+
+		var newMessage models.Message
+
+		newMessage.SentByUser = true
+		newMessage.Channel = "livechat"
+		newMessage.Message = sql.NullString{String: string(message), Valid: true}
+		newMessage.SentDate = sql.NullTime{Time: time.Now(), Valid: true}
+
+		database.InsertUserMessage(profile.Sub, message)
+
 		//If client message is ping will return pong
 		if string(message) == "ping" {
 			message = []byte("pong")

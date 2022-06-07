@@ -59,3 +59,27 @@ func GetUserMessages(authId string) []models.Message {
 
 	return messages
 }
+
+//to-do remove test function
+func InsertUserMessage(authId string, message models.Message) bool {
+	//Cretae DB connection
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"dbname=%s sslmode=disable",
+		host, port, user, dbname)
+	db, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	message_id := ""
+
+	sqlStatement := `INSERT INTO messages (sent_by_user, channel, fk_patient, message, sentDate) VALUES ($1, $2, (SELECT patient_id FROM patients WHERE $3 = ANY(authId)), $4, $5) RETURNING message_id;`
+
+	err = db.QueryRow(sqlStatement, message.SentByUser, message.Channel, authId, message.Message, message.SentDate, message.ExternalMessagesId).Scan(&message_id)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return message_id != ""
+}
