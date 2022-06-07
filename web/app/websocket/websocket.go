@@ -47,7 +47,7 @@ func Handler(ctx *gin.Context) {
 		newMessage.Message = sql.NullString{String: string(message), Valid: true}
 		newMessage.SentDate = sql.NullTime{Time: time.Now(), Valid: true}
 
-		database.InsertUserMessage(profile.Sub, message)
+		database.InsertUserMessage(profile.Sub, newMessage)
 
 		//If client message is ping will return pong
 		if string(message) == "ping" {

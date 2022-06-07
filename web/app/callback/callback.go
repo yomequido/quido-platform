@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/yomequido/quido-platform/platform/authenticator"
+	"github.com/yomequido/quido-platform/platform/database"
+	"github.com/yomequido/quido-platform/platform/tools"
 )
 
 // Handler for our callback.
@@ -45,6 +47,10 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			ctx.String(http.StatusInternalServerError, err.Error())
 			return
 		}
+
+		//Insert new user into DB
+		userProfile := tools.GetProfile(ctx)
+		database.InserNewUser(userProfile)
 
 		// Redirect to logged in page.
 		ctx.Redirect(http.StatusTemporaryRedirect, "/user")

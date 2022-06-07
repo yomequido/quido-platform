@@ -16,6 +16,7 @@ import (
 	"github.com/yomequido/quido-platform/web/app/chat"
 	"github.com/yomequido/quido-platform/web/app/login"
 	"github.com/yomequido/quido-platform/web/app/logout"
+	"github.com/yomequido/quido-platform/web/app/paymentMethods"
 	"github.com/yomequido/quido-platform/web/app/user"
 	"github.com/yomequido/quido-platform/web/app/websocket"
 )
@@ -43,6 +44,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.GET("/chat", middleware.IsAuthenticated, chat.Handler)
 	router.GET("/logout", middleware.IsAuthenticated, logout.Handler)
 	router.GET("/ws", middleware.IsAuthenticated, websocket.Handler)
+	router.GET("/paymentMethods", middleware.IsAuthenticated, paymentMethods.Handler)
 
 	return router
 }

@@ -32,11 +32,13 @@
       socket.onopen = function(e) {
           alert("[open] Connection established");
           alert("Sending to server");
-          socket.send("My name is John");
         };
 
         socket.onmessage = function(event) {
-          alert(`[message] Data received from server: ${event.data}`);
+          var item = document.createElement('li');
+          item.textContent = event.data;
+          messages.appendChild(item);
+          window.scrollTo(0, document.body.scrollHeight);
         };
 
         socket.onclose = function(event) {
@@ -45,7 +47,7 @@
           } else {
             // e.g. server process killed or network down
             // event.code is usually 1006 in this case
-            alert('[close] Connection died');
+            alert('Perdiste conexión, revisa tu conexión de internet e intenta de nuevo');
           }
         };
 
@@ -62,15 +64,12 @@
         e.preventDefault();
         if (input.value) {
           socket.send(input.value);
+          var item = document.createElement('li');
+          item.textContent = input.value
+          messages.appendChild(item);
+          window.scrollTo(0, document.body.scrollHeight);
           input.value = '';
         }
-      });
-
-      socket.on('chat message', function(msg) {
-        var item = document.createElement('li');
-        item.textContent = msg;
-        messages.appendChild(item);
-        window.scrollTo(0, document.body.scrollHeight);
       });
       
     </script>
