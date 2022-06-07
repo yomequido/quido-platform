@@ -6,7 +6,9 @@ require (
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-gonic/gin v1.7.4
+	github.com/gorilla/websocket v1.5.0
 	github.com/joho/godotenv v1.4.0
+	github.com/lib/pq v1.10.6
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 )
 
