@@ -10,9 +10,14 @@ import (
 
 // Handler for the chat page
 func Handler(ctx *gin.Context) {
+
 	ctx.HTML(http.StatusOK, "chat.html", gin.H{
 		"historicMessages": fetchMessages(ctx),
 	})
+	/*
+		ctx.JSON(http.StatusOK, gin.H{
+			"historicMessages": fetchMessages(ctx),
+		}) */
 }
 
 func fetchMessages(ctx *gin.Context) []string {

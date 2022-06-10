@@ -54,5 +54,7 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 
 		// Redirect to logged in page.
 		ctx.Redirect(http.StatusTemporaryRedirect, "/user")
+		// Return true is logged in
+		//ctx.JSON(http.StatusOK, gin.H{"isLoggedIn": true})
 	}
 }

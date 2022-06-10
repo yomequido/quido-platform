@@ -13,6 +13,9 @@ import (
 	"github.com/yomequido/quido-platform/platform/tools"
 )
 
+var clients = make(map[*websocket.Conn]bool)
+var identify = make(map[string]*websocket.Conn)
+
 var upgrader = websocket.Upgrader{
 	//check origin will check the cross region source (note : please not using in production)
 	CheckOrigin: func(r *http.Request) bool {
@@ -28,17 +31,20 @@ func Handler(ctx *gin.Context) {
 		log.Panic(err)
 	}
 
-	defer ws.Close()
+	profile := tools.GetProfile(ctx)
+
+	clients[ws] = true
+	identify[profile.Sub] = ws
+
+	log.Print(identify)
 
 	for {
 		//Read Message from client
 		messageType, message, err := ws.ReadMessage()
-		log.Print(string(message))
+		log.Print(messageType)
 		if err != nil {
 			log.Panic(err)
 		}
-
-		profile := tools.GetProfile(ctx)
 
 		var newMessage models.Message
 

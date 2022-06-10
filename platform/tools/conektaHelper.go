@@ -26,5 +26,7 @@ func CreateCustomer(conektaUser models.ConektaUser) string {
 		log.Panic(err)
 	}
 
+	log.Print(res)
+
 	return res.ID
 }

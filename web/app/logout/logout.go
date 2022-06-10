@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,6 +33,7 @@ func Handler(ctx *gin.Context) {
 	parameters := url.Values{}
 	parameters.Add("returnTo", returnTo.String())
 	parameters.Add("client_id", os.Getenv("AUTH0_CLIENT_ID"))
+	sessions.Default(ctx).Delete("session")
 	logoutUrl.RawQuery = parameters.Encode()
 
 	ctx.Redirect(http.StatusTemporaryRedirect, logoutUrl.String())

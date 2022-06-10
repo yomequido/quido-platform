@@ -4,6 +4,7 @@ package router
 
 import (
 	"encoding/gob"
+	"log"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/yomequido/quido-platform/platform/authenticator"
 	"github.com/yomequido/quido-platform/platform/middleware"
+	"github.com/yomequido/quido-platform/platform/models"
 	"github.com/yomequido/quido-platform/web/app/callback"
 	"github.com/yomequido/quido-platform/web/app/chat"
 	"github.com/yomequido/quido-platform/web/app/login"
@@ -45,6 +47,36 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.GET("/logout", middleware.IsAuthenticated, logout.Handler)
 	router.GET("/ws", middleware.IsAuthenticated, websocket.Handler)
 	router.GET("/paymentMethods", middleware.IsAuthenticated, paymentMethods.Handler)
+
+	v1 := router.Group("/v1")
+
+	v1.GET("login", login.Handler(auth))
+	v1.GET("/callback", callback.Handler(auth))
+
+	//to-do
+	v1.GET("/paymentMethods", func(ctx *gin.Context) {
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"card_payment_methods": []models.CardPaymentMethod{
+				{Type: "card", CardEnding: 1432, CardToken: "test_3ed98d239dn9238", Default: true},
+				{Type: "card", CardEnding: 4352, CardToken: "test_3edr32r32432432", Default: false},
+				{Type: "card", CardEnding: 8032, CardToken: "test_3ed98d239dn9258", Default: false},
+			},
+			"oxxo_payment_method": models.OxxoPaymentMethod{Type: "oxxo", Reference: "0000-0000-0000-0000", BarcodeUrl: "test.net"},
+			"spei_payment_method": models.SpeiPaymentMethod{Type: "spei", Reference: "16537213202193820183"},
+		},
+		)
+	})
+
+	v1.POST("/paymentMethods", func(ctx *gin.Context) {
+		var card models.CardPaymentMethod
+		err := ctx.BindJSON(&card)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		ctx.Status(http.StatusCreated)
+	})
 
 	return router
 }

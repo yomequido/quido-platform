@@ -1,12 +1,11 @@
 package database
 
 import (
-	"database/sql"
-	"fmt"
+	"context"
 	"log"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"github.com/yomequido/quido-platform/platform/models"
 	"github.com/yomequido/quido-platform/platform/tools"
 )
@@ -19,18 +18,35 @@ const (
 	dbname   = "postgres"
 )
 
+func getDbConnection() *pgx.Conn {
+	//conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	conn, err := pgx.Connect(context.Background(), "postgres://termis:@localhost:5432/postgres")
+	if err != nil {
+		log.Panic(err)
+	}
+	return conn
+}
+
+func GetTest() {
+	conn := getDbConnection()
+	defer conn.Close(context.Background())
+
+	var id int
+
+	err := conn.QueryRow(context.Background(), "select patient_id from patients where patient_id=$1", 1).Scan(&id)
+	if err != nil {
+		log.Panic(err)
+	}
+	log.Printf("ID: %d", id)
+}
+
 func GetUserMessages(authId string) []models.Message {
 	//Cretae DB connection
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"dbname=%s sslmode=disable",
-		host, port, user, dbname)
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
+	db := getDbConnection()
+	background := context.Background()
+	defer db.Close(background)
 
-	rows, err := db.Query(`SELECT * FROM messages WHERE fk_patient = (SELECT patient_id FROM patients WHERE $1 =ANY(authId))`, authId)
+	rows, err := db.Query(background, `SELECT * FROM messages WHERE fk_patient = (SELECT patient_id FROM patients WHERE $1 =ANY(authId))`, authId)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -65,46 +81,36 @@ func GetUserMessages(authId string) []models.Message {
 //to-do remove test function
 func InsertUserMessage(authId string, message models.Message) bool {
 	//Cretae DB connection
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"dbname=%s sslmode=disable",
-		host, port, user, dbname)
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
+	db := getDbConnection()
+	background := context.Background()
+	defer db.Close(background)
 
-	message_id := ""
+	message_id := -1
 
 	sqlStatement := `INSERT INTO messages (sent_by_user, channel, fk_patient, message, sentDate) VALUES ($1, $2, (SELECT patient_id FROM patients WHERE $3 = ANY(authId)), $4, $5) RETURNING message_id;`
 
-	err = db.QueryRow(sqlStatement, message.SentByUser, message.Channel, authId, message.Message, message.SentDate).Scan(&message_id)
+	err := db.QueryRow(background, sqlStatement, message.SentByUser, message.Channel, authId, message.Message, message.SentDate).Scan(&message_id)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	return message_id != ""
+	return message_id != -1
 }
 
 //to-do remove test function
 func InserNewUser(profile models.Profile) {
 	//Cretae DB connection
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"dbname=%s sslmode=disable",
-		host, port, user, dbname)
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
+	db := getDbConnection()
+	background := context.Background()
+	defer db.Close(background)
 
-	rows, err := db.Query(`SELECT patient_id FROM patients WHERE $1 =ANY(authId)`, profile.Sub)
+	rows, err := db.Query(background, `SELECT patient_id FROM patients WHERE $1 =ANY(authId)`, profile.Sub)
 	if err != nil {
 		log.Panic(err)
 	}
 
 	if !rows.Next() {
-		rows, err = db.Query(`SELECT patient_id FROM patients WHERE $1 = email`, profile.Email)
+		rows, err = db.Query(background, `SELECT patient_id FROM patients WHERE $1 = email`, profile.Email)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -114,7 +120,7 @@ func InserNewUser(profile models.Profile) {
 			sqlStatement := `INSERT INTO patients (authId, givenNames, familyNames, email) VALUES ($1, $2, $3, $4) RETURNING givenNames;`
 			//authId is a string array
 			authId := []string{profile.Sub}
-			err = db.QueryRow(sqlStatement, pq.Array(authId), profile.GivenName, profile.FamilyName, profile.Email).Scan(&givenName)
+			err = db.QueryRow(background, sqlStatement, pq.Array(authId), profile.GivenName, profile.FamilyName, profile.Email).Scan(&givenName)
 			if err != nil {
 				log.Panic(err)
 			}
@@ -126,16 +132,11 @@ func InserNewUser(profile models.Profile) {
 
 func GetConektaPayments(profile models.Profile) string {
 	//Cretae DB connection
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"dbname=%s sslmode=disable",
-		host, port, user, dbname)
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
+	db := getDbConnection()
+	background := context.Background()
+	defer db.Close(background)
 
-	rows, err := db.Query(`SELECT patient_id, givenNames, familyNames, email, countryCode, phone, conekta_id FROM patients LEFT JOIN conekta_id USING (patient_id) WHERE $1 = ANY(authId)`, profile.Sub)
+	rows, err := db.Query(background, `SELECT patient_id, givenNames, familyNames, email, countryCode, phone, conekta_id FROM patients LEFT JOIN conekta_id USING (patient_id) WHERE $1 = ANY(authId)`, profile.Sub)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -155,12 +156,14 @@ func GetConektaPayments(profile models.Profile) string {
 		}
 	}
 
+	rows.Close()
+
 	if !conektaUser.ConektaId.Valid {
 		conektaid := tools.CreateCustomer(conektaUser)
 
 		sqlStatement := `INSERT INTO conekta_id (patient_id, conekta_id) VALUES ($1, $2) RETURNING conekta_id;`
 
-		err = db.QueryRow(sqlStatement, conektaUser.PatientId, conektaid).Scan(&conektaUser.ConektaId)
+		err = db.QueryRow(background, sqlStatement, conektaUser.PatientId, conektaid).Scan(&conektaUser.ConektaId)
 		if err != nil {
 			log.Panic(err)
 		}
