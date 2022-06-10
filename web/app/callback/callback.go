@@ -3,6 +3,7 @@
 package callback
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
@@ -47,6 +48,8 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			ctx.String(http.StatusInternalServerError, err.Error())
 			return
 		}
+
+		log.Print("Inserting user into DB")
 
 		//Insert new user into DB
 		userProfile := tools.GetProfile(ctx)

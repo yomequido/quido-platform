@@ -1,39 +1,82 @@
 package database
 
 import (
-	"context"
+	"database/sql"
+	"fmt"
 	"log"
+	"os"
+	"time"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/lib/pq"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/yomequido/quido-platform/platform/models"
 	"github.com/yomequido/quido-platform/platform/tools"
 )
 
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "termis"
-	password = ""
-	dbname   = "postgres"
-)
-
-func getDbConnection() *pgx.Conn {
-	//conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-	conn, err := pgx.Connect(context.Background(), "postgres://termis:@localhost:5432/postgres")
-	if err != nil {
-		log.Panic(err)
+func mustGetenv(k string) string {
+	v := os.Getenv(k)
+	if v == "" {
+		log.Fatalf("Warning: %s environment variable not set.\n", k)
 	}
-	return conn
+	return v
+}
+
+func initSocketConnectionPool() (*sql.DB, error) {
+	// [START cloud_sql_postgres_databasesql_create_socket]
+	var (
+		dbUser                 = mustGetenv("DB_USER")                  // e.g. 'my-db-user'
+		dbPwd                  = mustGetenv("DB_PASS")                  // e.g. 'my-db-password'
+		instanceConnectionName = mustGetenv("INSTANCE_CONNECTION_NAME") // e.g. 'project:region:instance'
+		dbName                 = mustGetenv("DB_NAME")                  // e.g. 'my-database'
+	)
+
+	socketDir, isSet := os.LookupEnv("DB_SOCKET_DIR")
+	if !isSet {
+		socketDir = "/cloudsql"
+	}
+
+	dbURI := fmt.Sprintf("user=%s password=%s database=%s host=%s/%s", dbUser, dbPwd, dbName, socketDir, instanceConnectionName)
+
+	// dbPool is the pool of database connections.
+	dbPool, err := sql.Open("pgx", dbURI)
+	if err != nil {
+		return nil, fmt.Errorf("sql.Open: %v", err)
+	}
+
+	// [START_EXCLUDE]
+	configureConnectionPool(dbPool)
+	// [END_EXCLUDE]
+
+	return dbPool, nil
+	// [END cloud_sql_postgres_databasesql_create_socket]
+}
+
+func configureConnectionPool(dbPool *sql.DB) {
+	// [START cloud_sql_postgres_databasesql_limit]
+
+	// Set maximum number of connections in idle connection pool.
+	dbPool.SetMaxIdleConns(5)
+
+	// Set maximum number of open connections to the database.
+	dbPool.SetMaxOpenConns(7)
+
+	// [END cloud_sql_postgres_databasesql_limit]
+
+	// [START cloud_sql_postgres_databasesql_lifetime]
+
+	// Set Maximum time (in seconds) that a connection can remain open.
+	dbPool.SetConnMaxLifetime(1800 * time.Second)
+
+	// [END cloud_sql_postgres_databasesql_lifetime]
 }
 
 func GetTest() {
-	conn := getDbConnection()
-	defer conn.Close(context.Background())
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
 
 	var id int
-
-	err := conn.QueryRow(context.Background(), "select patient_id from patients where patient_id=$1", 1).Scan(&id)
+	err = db.QueryRow("select patient_id from patients where patient_id=$1", 1).Scan(&id)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -41,12 +84,12 @@ func GetTest() {
 }
 
 func GetUserMessages(authId string) []models.Message {
-	//Cretae DB connection
-	db := getDbConnection()
-	background := context.Background()
-	defer db.Close(background)
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
 
-	rows, err := db.Query(background, `SELECT * FROM messages WHERE fk_patient = (SELECT patient_id FROM patients WHERE $1 =ANY(authId))`, authId)
+	rows, err := db.Query(`SELECT * FROM messages WHERE fk_patient = (SELECT patient_id FROM patients WHERE $1 =ANY(authId))`, authId)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -80,16 +123,16 @@ func GetUserMessages(authId string) []models.Message {
 
 //to-do remove test function
 func InsertUserMessage(authId string, message models.Message) bool {
-	//Cretae DB connection
-	db := getDbConnection()
-	background := context.Background()
-	defer db.Close(background)
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
 
 	message_id := -1
 
 	sqlStatement := `INSERT INTO messages (sent_by_user, channel, fk_patient, message, sentDate) VALUES ($1, $2, (SELECT patient_id FROM patients WHERE $3 = ANY(authId)), $4, $5) RETURNING message_id;`
 
-	err := db.QueryRow(background, sqlStatement, message.SentByUser, message.Channel, authId, message.Message, message.SentDate).Scan(&message_id)
+	err = db.QueryRow(sqlStatement, message.SentByUser, message.Channel, authId, message.Message, message.SentDate).Scan(&message_id)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -99,18 +142,18 @@ func InsertUserMessage(authId string, message models.Message) bool {
 
 //to-do remove test function
 func InserNewUser(profile models.Profile) {
-	//Cretae DB connection
-	db := getDbConnection()
-	background := context.Background()
-	defer db.Close(background)
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
 
-	rows, err := db.Query(background, `SELECT patient_id FROM patients WHERE $1 =ANY(authId)`, profile.Sub)
+	rows, err := db.Query(`SELECT patient_id FROM patients WHERE $1 =ANY(authId)`, profile.Sub)
 	if err != nil {
 		log.Panic(err)
 	}
 
 	if !rows.Next() {
-		rows, err = db.Query(background, `SELECT patient_id FROM patients WHERE $1 = email`, profile.Email)
+		rows, err = db.Query(`SELECT patient_id FROM patients WHERE $1 = email`, profile.Email)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -120,7 +163,7 @@ func InserNewUser(profile models.Profile) {
 			sqlStatement := `INSERT INTO patients (authId, givenNames, familyNames, email) VALUES ($1, $2, $3, $4) RETURNING givenNames;`
 			//authId is a string array
 			authId := []string{profile.Sub}
-			err = db.QueryRow(background, sqlStatement, pq.Array(authId), profile.GivenName, profile.FamilyName, profile.Email).Scan(&givenName)
+			err = db.QueryRow(sqlStatement, authId, profile.GivenName, profile.FamilyName, profile.Email).Scan(&givenName)
 			if err != nil {
 				log.Panic(err)
 			}
@@ -131,12 +174,12 @@ func InserNewUser(profile models.Profile) {
 }
 
 func GetConektaPayments(profile models.Profile) string {
-	//Cretae DB connection
-	db := getDbConnection()
-	background := context.Background()
-	defer db.Close(background)
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
 
-	rows, err := db.Query(background, `SELECT patient_id, givenNames, familyNames, email, countryCode, phone, conekta_id FROM patients LEFT JOIN conekta_id USING (patient_id) WHERE $1 = ANY(authId)`, profile.Sub)
+	rows, err := db.Query(`SELECT patient_id, givenNames, familyNames, email, countryCode, phone, conekta_id FROM patients LEFT JOIN conekta_id USING (patient_id) WHERE $1 = ANY(authId)`, profile.Sub)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -163,7 +206,7 @@ func GetConektaPayments(profile models.Profile) string {
 
 		sqlStatement := `INSERT INTO conekta_id (patient_id, conekta_id) VALUES ($1, $2) RETURNING conekta_id;`
 
-		err = db.QueryRow(background, sqlStatement, conektaUser.PatientId, conektaid).Scan(&conektaUser.ConektaId)
+		err = db.QueryRow(sqlStatement, conektaUser.PatientId, conektaid).Scan(&conektaUser.ConektaId)
 		if err != nil {
 			log.Panic(err)
 		}
