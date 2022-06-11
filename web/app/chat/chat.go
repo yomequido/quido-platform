@@ -32,5 +32,4 @@ func fetchMessages(ctx *gin.Context) []string {
 	}
 
 	return result
-	//to-do implement get messages final
 }

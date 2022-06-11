@@ -69,13 +69,133 @@ func configureConnectionPool(dbPool *sql.DB) {
 	// [END cloud_sql_postgres_databasesql_lifetime]
 }
 
+func GetUser(authId string) models.User {
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	rows, err := db.Query(`SELECT created_date, given_names, family_names, email, country_code, phone, CAST(birth_sex as VARCHAR(1)) as birth_sex, gender, birthdate, tax_id, government_id, full_legal_name FROM patients WHERE $1 =ANY(auth_id)`, authId)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	var user models.User
+
+	if rows.Next() {
+		err = rows.Scan(
+			&user.CreatedDate,
+			&user.GivenName,
+			&user.FamilyName,
+			&user.Email,
+			&user.CountryCode,
+			&user.Phone,
+			&user.BirthSex,
+			&user.Gender,
+			&user.Birthdate,
+			&user.TaxId,
+			&user.GovernmentId,
+			&user.FullLegalName,
+		)
+	}
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return user
+
+}
+
+func SetUser(authId string, user models.InsertUser) {
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
+	log.Println("Getting existing user data from db: " + authId)
+	rows, err := db.Query(`SELECT patient_id, given_names, family_names, country_code, phone, CAST(birth_sex as VARCHAR(1)) as birth_sex, gender, birthdate, tax_id, government_id, full_legal_name FROM patients WHERE $1 =ANY(auth_id)`, authId)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	var id int
+	var currentUser models.InsertUser
+	log.Println("Extracting existing user data from resulting row: " + authId)
+	if rows.Next() {
+		err = rows.Scan(
+			&id,
+			&currentUser.GivenName,
+			&currentUser.FamilyName,
+			&currentUser.CountryCode,
+			&currentUser.Phone,
+			&currentUser.BirthSex,
+			&currentUser.Gender,
+			&currentUser.Birthdate,
+			&currentUser.TaxId,
+			&currentUser.GovernmentId,
+			&currentUser.FullLegalName,
+		)
+	}
+
+	//Add columns to update only if they have values
+	if user.GivenName != "" {
+		currentUser.GivenName = user.GivenName
+	}
+	if user.FamilyName != "" {
+		currentUser.FamilyName = user.FamilyName
+	}
+	if user.CountryCode != "" {
+		currentUser.CountryCode = user.CountryCode
+	}
+	if user.Phone != "" {
+		currentUser.Phone = user.Phone
+	}
+	if user.BirthSex != "" {
+		currentUser.BirthSex = user.BirthSex
+	}
+	if user.Gender != "" {
+		currentUser.Gender = user.Gender
+	}
+	if user.Birthdate != "" {
+		currentUser.Birthdate = user.Birthdate
+	}
+	if user.TaxId != "" {
+		currentUser.TaxId = user.TaxId
+	}
+	if user.GovernmentId != "" {
+		currentUser.GovernmentId = user.GovernmentId
+	}
+	if user.FullLegalName != "" {
+		currentUser.FullLegalName = user.FullLegalName
+	}
+	log.Println("Starting user update: " + authId)
+	result, err := db.Exec(`UPDATE patients SET given_names = $1, family_names = $2, country_code = $3, phone =$4, birth_sex = $5, gender = $6, birthdate = $7, tax_id = $8, government_id = $9, full_legal_name = $10 WHERE patient_id = $11;`,
+		currentUser.GivenName,
+		currentUser.FamilyName,
+		currentUser.CountryCode,
+		currentUser.Phone,
+		currentUser.BirthSex,
+		currentUser.Gender,
+		currentUser.Birthdate,
+		currentUser.TaxId,
+		currentUser.GovernmentId,
+		currentUser.FullLegalName,
+		id)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	res, _ := result.RowsAffected()
+	log.Printf("rows affected from %d", res)
+}
+
 func GetUserMessages(authId string) []models.Message {
 	db, err := initSocketConnectionPool()
 	if err != nil {
 		log.Panic(err)
 	}
 
-	rows, err := db.Query(`SELECT * FROM messages WHERE fk_patient = (SELECT patient_id FROM patients WHERE $1 =ANY(authId))`, authId)
+	rows, err := db.Query(`SELECT * FROM messages WHERE fk_patient = (SELECT patient_id FROM patients WHERE $1 =ANY(auth_id))`, authId)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -116,7 +236,7 @@ func InsertUserMessage(authId string, message models.Message) bool {
 
 	message_id := -1
 
-	sqlStatement := `INSERT INTO messages (sent_by_user, channel, fk_patient, message, sentDate) VALUES ($1, $2, (SELECT patient_id FROM patients WHERE $3 = ANY(authId)), $4, $5) RETURNING message_id;`
+	sqlStatement := `INSERT INTO messages (sent_by_user, channel, fk_patient, message, sent_date) VALUES ($1, $2, (SELECT patient_id FROM patients WHERE $3 = ANY(auth_id)), $4, $5) RETURNING message_id;`
 
 	err = db.QueryRow(sqlStatement, message.SentByUser, message.Channel, authId, message.Message, message.SentDate).Scan(&message_id)
 	if err != nil {
@@ -133,7 +253,7 @@ func InserNewUser(profile models.Profile) {
 		log.Panic(err)
 	}
 
-	rows, err := db.Query(`SELECT patient_id FROM patients WHERE $1 =ANY(authId)`, profile.Sub)
+	rows, err := db.Query(`SELECT patient_id FROM patients WHERE $1 =ANY(auth_id)`, profile.Sub)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -146,7 +266,7 @@ func InserNewUser(profile models.Profile) {
 		if !rows.Next() {
 			givenName := ""
 
-			sqlStatement := `INSERT INTO patients (authId, givenNames, familyNames, email) VALUES ($1, $2, $3, $4) RETURNING givenNames;`
+			sqlStatement := `INSERT INTO patients (auth_id, given_names, family_names, email) VALUES ($1, $2, $3, $4) RETURNING given_names;`
 			//authId is a string array
 			authId := []string{profile.Sub}
 			err = db.QueryRow(sqlStatement, authId, profile.GivenName, profile.FamilyName, profile.Email).Scan(&givenName)
@@ -165,7 +285,7 @@ func GetConektaPayments(profile models.Profile) string {
 		log.Panic(err)
 	}
 
-	rows, err := db.Query(`SELECT patient_id, givenNames, familyNames, email, countryCode, phone, conekta_id FROM patients LEFT JOIN conekta_id USING (patient_id) WHERE $1 = ANY(authId)`, profile.Sub)
+	rows, err := db.Query(`SELECT patient_id, given_names, family_names, email, country_code, phone, conekta_id FROM patients LEFT JOIN conekta_id USING (patient_id) WHERE $1 = ANY(auth_id)`, profile.Sub)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -197,7 +317,19 @@ func GetConektaPayments(profile models.Profile) string {
 			log.Panic(err)
 		}
 
+		sqlStatement = `INSERT INTO payment_methods (patient_id, customer_payment_id, platform, type, payment_method_id, reference, barcode_url, expiration_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING payment_method_id;`
+
+		//to-do add all payment parameters
+		err = db.QueryRow(sqlStatement, conektaUser.PatientId, conektaid).Scan(&conektaUser.ConektaId)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		//to-do close row and insert new payment methods
+
 	}
+
+	//tools.GetPaymentMethods(conektaUser.ConektaId)
 
 	return conektaUser.ConektaId.String
 }

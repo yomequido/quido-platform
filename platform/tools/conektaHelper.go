@@ -78,9 +78,9 @@ type Checkout struct {
 	ID string `json:"id"`
 }
 
-/*
-func GetConektaPayments(conektaId string) map[string]struct {
-	conekta.APIKey = "key_zyaxzY5JAjNAGTv8f8TroA"
+func GetConektaPayments(conektaId string) map[string]interface{} {
+
+	/*conekta.APIKey = "key_zyaxzY5JAjNAGTv8f8TroA"
 
 	paymenthMethods, err := paymentsource.All(conektaId)
 	if err != nil {
@@ -90,7 +90,7 @@ func GetConektaPayments(conektaId string) map[string]struct {
 	log.Print(paymenthMethods)
 	var paymentMethodMap models.PaymentMethods
 
-	for _, paymentMethod := range paymenthMethods.Data
+	for _, paymentMethod := range paymenthMethods.Data {
 		if paymentMethod.PaymentType == "card" {
 			newCard := models.CardPaymentMethod{Type="card", CardEnding=paymentMethod.Last4, paymentMethod.ID, Default=paymentMethod.Default}
 			paymentMethodMap.CardPaymentMethods = append(paymentMethodMap.CardPaymentMethods, newCard)
@@ -99,10 +99,10 @@ func GetConektaPayments(conektaId string) map[string]struct {
 			}
 		}
 	}
-
-	return paymenthMethodsMap
+	*/
+	return make(map[string]interface{})
 }
-*/
+
 /*{
 	"card_payment_methods": []models.CardPaymentMethod{
 		{Type: "card", CardEnding: 1432, CardToken: "test_3ed98d239dn9238", Default: true},
