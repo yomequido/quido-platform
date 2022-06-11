@@ -36,5 +36,15 @@ func Handler(ctx *gin.Context) {
 	sessions.Default(ctx).Delete("session")
 	logoutUrl.RawQuery = parameters.Encode()
 
+	c := &http.Cookie{
+		Name:     "auth-session",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	}
+
+	ctx.SetCookie(c.Name, c.Value, c.MaxAge, c.Path, ctx.Request.Host, false, c.HttpOnly)
+
 	ctx.Redirect(http.StatusTemporaryRedirect, logoutUrl.String())
 }

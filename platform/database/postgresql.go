@@ -69,20 +69,6 @@ func configureConnectionPool(dbPool *sql.DB) {
 	// [END cloud_sql_postgres_databasesql_lifetime]
 }
 
-func GetTest() {
-	db, err := initSocketConnectionPool()
-	if err != nil {
-		log.Panic(err)
-	}
-
-	var id int
-	err = db.QueryRow("select patient_id from patients where patient_id=$1", 1).Scan(&id)
-	if err != nil {
-		log.Panic(err)
-	}
-	log.Printf("ID: %d", id)
-}
-
 func GetUserMessages(authId string) []models.Message {
 	db, err := initSocketConnectionPool()
 	if err != nil {

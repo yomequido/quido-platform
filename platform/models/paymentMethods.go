@@ -17,3 +17,9 @@ type SpeiPaymentMethod struct {
 	Type      string `json:"type"`
 	Reference string `json:"reference"`
 }
+
+type PaymentMethods struct {
+	CardPaymentMethods []CardPaymentMethod
+	OxxoPaymentMethod  OxxoPaymentMethod
+	SpeiPaymentMethod  SpeiPaymentMethod
+}

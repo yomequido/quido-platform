@@ -16,6 +16,7 @@ import (
 	"github.com/yomequido/quido-platform/platform/models"
 	"github.com/yomequido/quido-platform/web/app/callback"
 	"github.com/yomequido/quido-platform/web/app/chat"
+	"github.com/yomequido/quido-platform/web/app/checkout"
 	"github.com/yomequido/quido-platform/web/app/login"
 	"github.com/yomequido/quido-platform/web/app/logout"
 	"github.com/yomequido/quido-platform/web/app/paymentMethods"
@@ -77,6 +78,37 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 
 		ctx.Status(http.StatusCreated)
 	})
+
+	v1.GET("/user", func(ctx *gin.Context) {
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"email":         "example@email.com",
+			"phone":         "5534881300",
+			"country_code":  "52",
+			"given_names":   "Alejandro David",
+			"family_names":  "Terminel Lembert",
+			"birthdate":     "1994-04-29",
+			"government_id": "TELA940429HDLFL79",
+			"tax_id":        "TELA9404298P7",
+			"birth_sex":     "m",
+			"gender":        "transgenero",
+			"created_date":  "2022-06-06 22:56:22.665555",
+		},
+		)
+	})
+
+	v1.POST("/user", func(ctx *gin.Context) {
+		var user models.InsertUser
+
+		err := ctx.BindJSON(&user)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		ctx.Status(http.StatusCreated)
+	})
+
+	v1.GET("/checkout", checkout.Handler)
 
 	return router
 }
