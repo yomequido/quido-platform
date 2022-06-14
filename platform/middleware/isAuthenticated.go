@@ -11,6 +11,7 @@ import (
 // the user has already been authenticated previously.
 func IsAuthenticated(ctx *gin.Context) {
 	if sessions.Default(ctx).Get("profile") == nil {
+		ctx.Header("Access-Control-Allow-Origin", "*")
 		ctx.Redirect(http.StatusSeeOther, "/login")
 	} else {
 		ctx.Next()

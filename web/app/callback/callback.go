@@ -55,8 +55,6 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 		userProfile := tools.GetProfile(ctx)
 		database.InserNewUser(userProfile)
 
-		ctx.Header("Access-Control-Allow-Origin", "*")
-
 		// Redirect to logged in page.
 		//ctx.Redirect(http.StatusTemporaryRedirect, "/user")
 		// Return true is logged in
