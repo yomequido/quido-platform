@@ -10,6 +10,7 @@ import (
 
 	conekta "github.com/conekta/conekta-go"
 	"github.com/conekta/conekta-go/customer"
+	"github.com/conekta/conekta-go/paymentsource"
 	"github.com/yomequido/quido-platform/platform/models"
 )
 
@@ -21,11 +22,24 @@ func CreateCustomer(conektaUser models.ConektaUser) *conekta.Customer {
 	cus.Email = conektaUser.Email
 	cus.Phone = conektaUser.CountryCode + conektaUser.Phone
 
+	payment := &conekta.PaymentSourceCreateParams{
+		PaymentType: "oxxo_recurrent",
+	}
+
+	cus.PaymentSources = append(cus.PaymentSources, payment)
+
 	res, err := customer.Create(cus)
 	if err != nil {
 		log.Panic(err)
 	}
 
+	payment = &conekta.PaymentSourceCreateParams{
+		PaymentType: "spei_recurrent",
+	}
+
+	paymentsource.Create(res.ID, payment)
+
+	log.Print(res)
 	return res
 }
 
@@ -78,9 +92,10 @@ type Checkout struct {
 	ID string `json:"id"`
 }
 
+/*
 func GetConektaPayments(conektaId string) map[string]interface{} {
 
-	/*conekta.APIKey = "key_zyaxzY5JAjNAGTv8f8TroA"
+	conekta.APIKey = "key_zyaxzY5JAjNAGTv8f8TroA"
 
 	paymenthMethods, err := paymentsource.All(conektaId)
 	if err != nil {
@@ -99,9 +114,11 @@ func GetConektaPayments(conektaId string) map[string]interface{} {
 			}
 		}
 	}
-	*/
+
 	return make(map[string]interface{})
 }
+
+*/
 
 /*{
 	"card_payment_methods": []models.CardPaymentMethod{

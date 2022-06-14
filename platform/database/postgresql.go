@@ -137,56 +137,74 @@ func SetUser(authId string, user models.InsertUser) {
 		)
 	}
 
+	//Indicator that there are changes betweeen the old values and the new values, so as to not waste an update in postgres for data that won't change
+	updateUser := false
+
 	//Add columns to update only if they have values
 	if user.GivenName != "" {
 		currentUser.GivenName = user.GivenName
+		updateUser = true
 	}
 	if user.FamilyName != "" {
 		currentUser.FamilyName = user.FamilyName
+		updateUser = true
 	}
 	if user.CountryCode != "" {
 		currentUser.CountryCode = user.CountryCode
+		updateUser = true
 	}
 	if user.Phone != "" {
 		currentUser.Phone = user.Phone
+		updateUser = true
 	}
 	if user.BirthSex != "" {
 		currentUser.BirthSex = user.BirthSex
+		updateUser = true
 	}
 	if user.Gender != "" {
 		currentUser.Gender = user.Gender
+		updateUser = true
 	}
 	if user.Birthdate != "" {
 		currentUser.Birthdate = user.Birthdate
+		updateUser = true
 	}
 	if user.TaxId != "" {
 		currentUser.TaxId = user.TaxId
+		updateUser = true
 	}
 	if user.GovernmentId != "" {
 		currentUser.GovernmentId = user.GovernmentId
+		updateUser = true
 	}
 	if user.FullLegalName != "" {
 		currentUser.FullLegalName = user.FullLegalName
-	}
-	log.Println("Starting user update: " + authId)
-	result, err := db.Exec(`UPDATE patients SET given_names = $1, family_names = $2, country_code = $3, phone =$4, birth_sex = $5, gender = $6, birthdate = $7, tax_id = $8, government_id = $9, full_legal_name = $10 WHERE patient_id = $11;`,
-		currentUser.GivenName,
-		currentUser.FamilyName,
-		currentUser.CountryCode,
-		currentUser.Phone,
-		currentUser.BirthSex,
-		currentUser.Gender,
-		currentUser.Birthdate,
-		currentUser.TaxId,
-		currentUser.GovernmentId,
-		currentUser.FullLegalName,
-		id)
-	if err != nil {
-		log.Panic(err)
+		updateUser = true
 	}
 
-	res, _ := result.RowsAffected()
-	log.Printf("rows affected from %d", res)
+	if updateUser {
+		log.Println("Starting user update: " + authId)
+		result, err := db.Exec(`UPDATE patients SET given_names = $1, family_names = $2, country_code = $3, phone =$4, birth_sex = $5, gender = $6, birthdate = $7, tax_id = $8, government_id = $9, full_legal_name = $10 WHERE patient_id = $11;`,
+			currentUser.GivenName,
+			currentUser.FamilyName,
+			currentUser.CountryCode,
+			currentUser.Phone,
+			currentUser.BirthSex,
+			currentUser.Gender,
+			currentUser.Birthdate,
+			currentUser.TaxId,
+			currentUser.GovernmentId,
+			currentUser.FullLegalName,
+			id)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		res, _ := result.RowsAffected()
+		log.Printf("rows affected from %d", res)
+	} else {
+		log.Printf("User %s didn't have any new values to update", authId)
+	}
 }
 
 func GetUserMessages(authId string) []models.Message {
@@ -285,7 +303,7 @@ func GetConektaPayments(profile models.Profile) string {
 		log.Panic(err)
 	}
 
-	rows, err := db.Query(`SELECT patient_id, given_names, family_names, email, country_code, phone, conekta_id FROM patients LEFT JOIN conekta_id USING (patient_id) WHERE $1 = ANY(auth_id)`, profile.Sub)
+	rows, err := db.Query(`SELECT patient_id, given_names, family_names, email, country_code, phone, conekta_id FROM patients LEFT JOIN conekta_id ON patient_id = fk_patient WHERE $1 = ANY(auth_id)`, profile.Sub)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -310,22 +328,12 @@ func GetConektaPayments(profile models.Profile) string {
 	if !conektaUser.ConektaId.Valid {
 		conektaid := tools.CreateCustomer(conektaUser)
 
-		sqlStatement := `INSERT INTO conekta_id (patient_id, conekta_id) VALUES ($1, $2) RETURNING conekta_id;`
+		sqlStatement := `INSERT INTO conekta_id (fk_patient, conekta_id) VALUES ($1, $2) RETURNING conekta_id;`
 
-		err = db.QueryRow(sqlStatement, conektaUser.PatientId, conektaid).Scan(&conektaUser.ConektaId)
+		err = db.QueryRow(sqlStatement, conektaUser.PatientId, conektaid.ID).Scan(&conektaUser.ConektaId)
 		if err != nil {
 			log.Panic(err)
 		}
-
-		sqlStatement = `INSERT INTO payment_methods (patient_id, customer_payment_id, platform, type, payment_method_id, reference, barcode_url, expiration_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING payment_method_id;`
-
-		//to-do add all payment parameters
-		err = db.QueryRow(sqlStatement, conektaUser.PatientId, conektaid).Scan(&conektaUser.ConektaId)
-		if err != nil {
-			log.Panic(err)
-		}
-
-		//to-do close row and insert new payment methods
 
 	}
 

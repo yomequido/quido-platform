@@ -62,20 +62,24 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	//Create a checkout id and public key for creating a card tokenizer
 	v1.GET("/checkout", middleware.IsAuthenticated, checkout.Handler)
 
-	//to-do
-	v1.GET("/paymentMethods", func(ctx *gin.Context) {
+	v1.GET("/paymentMethods", middleware.IsAuthenticated, paymentMethods.Handler)
 
-		ctx.JSON(http.StatusOK, gin.H{
-			"card_payment_methods": []models.CardPaymentMethod{
-				{Type: "card", CardEnding: 1432, CardToken: "test_3ed98d239dn9238", Default: true},
-				{Type: "card", CardEnding: 4352, CardToken: "test_3edr32r32432432", Default: false},
-				{Type: "card", CardEnding: 8032, CardToken: "test_3ed98d239dn9258", Default: false},
+	//to-do
+	/*
+		v1.GET("/paymentMethods", func(ctx *gin.Context) {
+
+			ctx.JSON(http.StatusOK, gin.H{
+				"card_payment_methods": []models.CardPaymentMethod{
+					{Type: "card", CardEnding: 1432, CardToken: "test_3ed98d239dn9238", Default: true},
+					{Type: "card", CardEnding: 4352, CardToken: "test_3edr32r32432432", Default: false},
+					{Type: "card", CardEnding: 8032, CardToken: "test_3ed98d239dn9258", Default: false},
+				},
+				"oxxo_payment_method": models.OxxoPaymentMethod{Type: "oxxo", Reference: "0000-0000-0000-0000", BarcodeUrl: "test.net"},
+				"spei_payment_method": models.SpeiPaymentMethod{Type: "spei", Reference: "16537213202193820183"},
 			},
-			"oxxo_payment_method": models.OxxoPaymentMethod{Type: "oxxo", Reference: "0000-0000-0000-0000", BarcodeUrl: "test.net"},
-			"spei_payment_method": models.SpeiPaymentMethod{Type: "spei", Reference: "16537213202193820183"},
-		},
-		)
-	})
+			)
+		})
+	*/
 
 	v1.POST("/paymentMethods", func(ctx *gin.Context) {
 		var card models.CardPaymentMethod
