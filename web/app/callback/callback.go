@@ -55,9 +55,11 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 		userProfile := tools.GetProfile(ctx)
 		database.InserNewUser(userProfile)
 
+		ctx.SetCookie("auth-session", token.AccessToken, -1, "/", ".quido.mx", true, false)
+
 		// Redirect to logged in page.
-		//ctx.Redirect(http.StatusTemporaryRedirect, "/user")
+		ctx.Redirect(http.StatusTemporaryRedirect, "https://quido.mx/registro")
 		// Return true is logged in
-		ctx.Status(http.StatusOK)
+		//ctx.Status(http.StatusOK)
 	}
 }

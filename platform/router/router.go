@@ -6,7 +6,9 @@ import (
 	"encoding/gob"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -27,6 +29,15 @@ import (
 // New registers the routes and returns the router.
 func New(auth *authenticator.Authenticator) *gin.Engine {
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"https://api.quido.mx", "https://www.api.quido.mx", "https://quido.mx", "https://www.quido.mx"},
+		AllowMethods:     []string{"GET", "DELETE", "OPTIONS", "PUT", "PATCH"},
+		AllowHeaders:     []string{"*"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// To store custom types in our cookies,
 	// we must first register them using gob.Register
