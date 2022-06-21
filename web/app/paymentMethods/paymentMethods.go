@@ -11,7 +11,7 @@ import (
 // Handler for user payment methods.
 func Handler(ctx *gin.Context) {
 	profile := tools.GetProfile(ctx)
-	conektaId := database.GetConektaPayments(profile)
-	ctx.JSON(http.StatusOK, gin.H{"ConektaId": conektaId})
+	conektaPaymentMethods := database.GetConektaPayments(profile)
+	ctx.JSON(http.StatusOK, conektaPaymentMethods)
 
 }

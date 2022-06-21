@@ -32,7 +32,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"https://api.quido.mx", "https://www.api.quido.mx", "https://quido.mx", "https://www.quido.mx"},
-		AllowMethods:     []string{"GET", "DELETE", "OPTIONS", "PUT", "PATCH"},
+		AllowMethods:     []string{"GET", "POST", "DELETE"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
@@ -54,11 +54,10 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	})
 	router.GET("/login", login.Handler(auth))
 	router.GET("/callback", callback.Handler(auth))
-	router.GET("/user", middleware.IsAuthenticated, user.Handler)
+	router.GET("/user", user.Get)
 	router.GET("/chat", middleware.IsAuthenticated, chat.Handler)
 	router.GET("/logout", middleware.IsAuthenticated, logout.Handler)
 	router.GET("/ws", middleware.IsAuthenticated, websocket.Handler)
-	router.GET("/paymentMethods", middleware.IsAuthenticated, paymentMethods.Handler)
 
 	v1 := router.Group("/v1")
 
@@ -73,7 +72,41 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	//Create a checkout id and public key for creating a card tokenizer
 	v1.GET("/checkout", middleware.IsAuthenticated, checkout.Handler)
 
+	//Save token from card to user
+	v1.POST("/saveCard", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	//Get payment methods
 	v1.GET("/paymentMethods", middleware.IsAuthenticated, paymentMethods.Handler)
+
+	//Get and post products and prices
+	v1.GET("/products", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	v1.POST("/products", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	// Get and post address
+
+	v1.GET("/address", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	v1.POST("/address", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	//Get and post payment intent
+	v1.GET("/paymentIntent", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	v1.POST("/paymentIntent", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
 
 	//to-do
 	/*
@@ -93,7 +126,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	*/
 
 	v1.POST("/paymentMethods", func(ctx *gin.Context) {
-		var card models.CardPaymentMethod
+		var card models.PaymentMethod
 		err := ctx.BindJSON(&card)
 		if err != nil {
 			log.Panic(err)

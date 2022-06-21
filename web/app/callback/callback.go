@@ -5,6 +5,7 @@ package callback
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -51,15 +52,14 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 
 		log.Print("Inserting user into DB")
 
-		//Insert new user into DB
+		//Insert new user into DB if doesn't exist
 		userProfile := tools.GetProfile(ctx)
-		database.InserNewUser(userProfile)
+		//Insert new user returns true if user previously existed in the DB
+		userExists := strconv.FormatBool(database.InserNewUser(userProfile))
 
 		ctx.SetCookie("auth-session", token.AccessToken, -1, "/", ".quido.mx", true, false)
 
 		// Redirect to logged in page.
-		ctx.Redirect(http.StatusTemporaryRedirect, "https://quido.mx/registro")
-		// Return true is logged in
-		//ctx.Status(http.StatusOK)
+		ctx.Redirect(http.StatusTemporaryRedirect, "https://quido.mx/callbackLogin?returning_user="+userExists)
 	}
 }

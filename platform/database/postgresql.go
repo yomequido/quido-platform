@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgtype"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/yomequido/quido-platform/platform/models"
 	"github.com/yomequido/quido-platform/platform/tools"
@@ -69,7 +70,56 @@ func configureConnectionPool(dbPool *sql.DB) {
 	// [END cloud_sql_postgres_databasesql_lifetime]
 }
 
-func GetUser(authId string) models.User {
+func InserNewUser(profile models.Profile) bool {
+	var userExists = true
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	//Check if user exists through auth0 ID
+	rows, err := db.Query(`SELECT patient_id FROM patients WHERE $1 =ANY(auth_id)`, profile.Sub)
+	if err != nil {
+		log.Panic(err)
+	}
+	//User doesn't exist by auth0 ID we should check if using other login method through email matching
+	if !rows.Next() {
+		//check if email exists
+		rows, err = db.Query(`SELECT patient_id FROM patients WHERE $1 = email`, profile.Email)
+		if err != nil {
+			log.Panic(err)
+		}
+		//if email exists insert user auth0 into existing user
+		if rows.Next() {
+			var patientId = ""
+			err := rows.Scan(&patientId)
+			if err != nil {
+				log.Panic(err)
+			}
+			sqlStatement := `UPDATE patients SET auth_id = array_append(auth_id, $1) WHERE $2 = patient_id ;`
+			//authId is a string array
+			authId := []string{profile.Sub}
+			_, err = db.Exec(sqlStatement, authId, patientId)
+			if err != nil {
+				log.Panic(err)
+			}
+		} else {
+			userExists = false
+			//if email doesn't exist then insert user
+			sqlStatement := `INSERT INTO patients (auth_id, email) VALUES ($1, $2) RETURNING email;`
+			//authId is a string array
+			authId := []string{profile.Sub}
+			email := ""
+			err = db.QueryRow(sqlStatement, authId, profile.GivenName, profile.FamilyName, profile.Email).Scan(&email)
+			if err != nil {
+				log.Panic(err)
+			}
+		}
+	}
+	return userExists
+}
+
+func GetUser(authId string) models.DBUser {
 	db, err := initSocketConnectionPool()
 	if err != nil {
 		log.Panic(err)
@@ -80,7 +130,7 @@ func GetUser(authId string) models.User {
 		log.Panic(err)
 	}
 
-	var user models.User
+	var user models.DBUser
 
 	if rows.Next() {
 		err = rows.Scan(
@@ -107,7 +157,7 @@ func GetUser(authId string) models.User {
 
 }
 
-func SetUser(authId string, user models.InsertUser) {
+func SetUser(authId string, user models.User) {
 	db, err := initSocketConnectionPool()
 	if err != nil {
 		log.Panic(err)
@@ -119,7 +169,7 @@ func SetUser(authId string, user models.InsertUser) {
 	}
 
 	var id int
-	var currentUser models.InsertUser
+	var currentUser models.DBUser
 	log.Println("Extracting existing user data from resulting row: " + authId)
 	if rows.Next() {
 		err = rows.Scan(
@@ -141,44 +191,48 @@ func SetUser(authId string, user models.InsertUser) {
 	updateUser := false
 
 	//Add columns to update only if they have values
+	log.Println("Given name: " + user.GivenName)
 	if user.GivenName != "" {
-		currentUser.GivenName = user.GivenName
+		currentUser.GivenName.Set(user.GivenName)
+		currentUser.GivenName.Status = pgtype.Present
 		updateUser = true
 	}
+	log.Println("Family name: " + user.FamilyName)
 	if user.FamilyName != "" {
-		currentUser.FamilyName = user.FamilyName
+		currentUser.FamilyName.Set(user.FamilyName)
 		updateUser = true
 	}
+	log.Println("Country: " + user.CountryCode)
 	if user.CountryCode != "" {
-		currentUser.CountryCode = user.CountryCode
+		currentUser.CountryCode.Set(user.CountryCode)
 		updateUser = true
 	}
 	if user.Phone != "" {
-		currentUser.Phone = user.Phone
+		currentUser.Phone.Set(user.Phone)
 		updateUser = true
 	}
 	if user.BirthSex != "" {
-		currentUser.BirthSex = user.BirthSex
+		currentUser.BirthSex.Set(user.BirthSex)
 		updateUser = true
 	}
 	if user.Gender != "" {
-		currentUser.Gender = user.Gender
+		currentUser.Gender.Set(user.Gender)
 		updateUser = true
 	}
 	if user.Birthdate != "" {
-		currentUser.Birthdate = user.Birthdate
+		currentUser.Birthdate.Set(user.Birthdate)
 		updateUser = true
 	}
 	if user.TaxId != "" {
-		currentUser.TaxId = user.TaxId
+		currentUser.TaxId.Set(user.TaxId)
 		updateUser = true
 	}
 	if user.GovernmentId != "" {
-		currentUser.GovernmentId = user.GovernmentId
+		currentUser.GovernmentId.Set(user.GovernmentId)
 		updateUser = true
 	}
 	if user.FullLegalName != "" {
-		currentUser.FullLegalName = user.FullLegalName
+		currentUser.FullLegalName.Set(user.FullLegalName)
 		updateUser = true
 	}
 
@@ -264,40 +318,7 @@ func InsertUserMessage(authId string, message models.Message) bool {
 	return message_id != -1
 }
 
-//to-do remove test function
-func InserNewUser(profile models.Profile) {
-	db, err := initSocketConnectionPool()
-	if err != nil {
-		log.Panic(err)
-	}
-
-	rows, err := db.Query(`SELECT patient_id FROM patients WHERE $1 =ANY(auth_id)`, profile.Sub)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	if !rows.Next() {
-		rows, err = db.Query(`SELECT patient_id FROM patients WHERE $1 = email`, profile.Email)
-		if err != nil {
-			log.Panic(err)
-		}
-		if !rows.Next() {
-			givenName := ""
-
-			sqlStatement := `INSERT INTO patients (auth_id, given_names, family_names, email) VALUES ($1, $2, $3, $4) RETURNING given_names;`
-			//authId is a string array
-			authId := []string{profile.Sub}
-			err = db.QueryRow(sqlStatement, authId, profile.GivenName, profile.FamilyName, profile.Email).Scan(&givenName)
-			if err != nil {
-				log.Panic(err)
-			}
-		} else {
-			log.Print("Patient with same email has two user: " + profile.Email)
-		}
-	}
-}
-
-func GetConektaPayments(profile models.Profile) string {
+func GetConektaPayments(profile models.Profile) models.PaymentMethods {
 	db, err := initSocketConnectionPool()
 	if err != nil {
 		log.Panic(err)
@@ -325,7 +346,7 @@ func GetConektaPayments(profile models.Profile) string {
 
 	rows.Close()
 
-	if !conektaUser.ConektaId.Valid {
+	if conektaUser.ConektaId.Status == pgtype.Null {
 		conektaid := tools.CreateCustomer(conektaUser)
 
 		sqlStatement := `INSERT INTO conekta_id (fk_patient, conekta_id) VALUES ($1, $2) RETURNING conekta_id;`
@@ -337,7 +358,5 @@ func GetConektaPayments(profile models.Profile) string {
 
 	}
 
-	//tools.GetPaymentMethods(conektaUser.ConektaId)
-
-	return conektaUser.ConektaId.String
+	return tools.GetConektaPaymentMethods(conektaUser.ConektaId.String)
 }

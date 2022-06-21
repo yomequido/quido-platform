@@ -28,12 +28,13 @@ func Get(ctx *gin.Context) {
 	user := database.GetUser(sub)
 
 	ctx.JSON(http.StatusOK, user)
+
 }
 
 // Handler for updating the logged in user
 func Post(ctx *gin.Context) {
 	sub := tools.GetProfile(ctx).Sub
-	var user models.InsertUser
+	var user models.User
 
 	err := ctx.BindJSON(&user)
 	if err != nil {

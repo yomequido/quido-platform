@@ -18,7 +18,7 @@ func CreateCustomer(conektaUser models.ConektaUser) *conekta.Customer {
 	conekta.APIKey = os.Getenv("CONEKTA_API")
 
 	cus := &conekta.CustomerParams{}
-	cus.Name = conektaUser.GivenName.String + " " + conektaUser.FamilyName.String
+	cus.Name = conektaUser.GivenName + " " + conektaUser.FamilyName
 	cus.Email = conektaUser.Email
 	cus.Phone = conektaUser.CountryCode + conektaUser.Phone
 
@@ -92,10 +92,9 @@ type Checkout struct {
 	ID string `json:"id"`
 }
 
-/*
-func GetConektaPayments(conektaId string) map[string]interface{} {
+func GetConektaPaymentMethods(conektaId string) models.PaymentMethods {
 
-	conekta.APIKey = "key_zyaxzY5JAjNAGTv8f8TroA"
+	conekta.APIKey = os.Getenv("CONEKTA_API")
 
 	paymenthMethods, err := paymentsource.All(conektaId)
 	if err != nil {
@@ -107,25 +106,14 @@ func GetConektaPayments(conektaId string) map[string]interface{} {
 
 	for _, paymentMethod := range paymenthMethods.Data {
 		if paymentMethod.PaymentType == "card" {
-			newCard := models.CardPaymentMethod{Type="card", CardEnding=paymentMethod.Last4, paymentMethod.ID, Default=paymentMethod.Default}
+			newCard := models.PaymentMethod{Type: "card", CardEnding: paymentMethod.Last4, CardToken: paymentMethod.ID, Default: paymentMethod.Default}
 			paymentMethodMap.CardPaymentMethods = append(paymentMethodMap.CardPaymentMethods, newCard)
-		}else if paymentMethod.PaymentType == "oxxo_recurrent" {
-			newOxxo := models.OxxoPaymentMethod{Type="oxxo_recurrent", Reference=paymentMethod.Reference, BarcodeUrl=paymenthMethods.Barcode
-			}
+		} else if paymentMethod.PaymentType == "oxxo_recurrent" {
+			paymentMethodMap.OxxoPaymentMethod = models.PaymentMethod{Type: "oxxo_recurrent", Reference: paymentMethod.ID}
+		} else if paymentMethod.PaymentType == "spei_recurrent" {
+			paymentMethodMap.OxxoPaymentMethod = models.PaymentMethod{Type: "spei_recurrent", Reference: paymentMethod.ID}
 		}
 	}
 
-	return make(map[string]interface{})
+	return paymentMethodMap
 }
-
-*/
-
-/*{
-	"card_payment_methods": []models.CardPaymentMethod{
-		{Type: "card", CardEnding: 1432, CardToken: "test_3ed98d239dn9238", Default: true},
-		{Type: "card", CardEnding: 4352, CardToken: "test_3edr32r32432432", Default: false},
-		{Type: "card", CardEnding: 8032, CardToken: "test_3ed98d239dn9258", Default: false},
-	},
-	"oxxo_payment_method": models.OxxoPaymentMethod{Type: "oxxo", Reference: "0000-0000-0000-0000", BarcodeUrl: "test.net"},
-	"spei_payment_method": models.SpeiPaymentMethod{Type: "spei", Reference: "16537213202193820183"},
-},*/
