@@ -110,7 +110,7 @@ func InserNewUser(profile models.Profile) bool {
 			//authId is a string array
 			authId := []string{profile.Sub}
 			email := ""
-			err = db.QueryRow(sqlStatement, authId, profile.GivenName, profile.FamilyName, profile.Email).Scan(&email)
+			err = db.QueryRow(sqlStatement, authId, profile.Email).Scan(&email)
 			if err != nil {
 				log.Panic(err)
 			}
@@ -359,4 +359,30 @@ func GetConektaPayments(profile models.Profile) models.PaymentMethods {
 	}
 
 	return tools.GetConektaPaymentMethods(conektaUser.ConektaId.String)
+}
+
+func GetConektaUser(profile models.Profile) string {
+	db, err := initSocketConnectionPool()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	rows, err := db.Query(`SELECT conekta_id FROM patients LEFT JOIN conekta_id ON patient_id = fk_patient WHERE $1 = ANY(auth_id)`, profile.Sub)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	var conektaUser models.ConektaUser
+	if rows.Next() {
+		err = rows.Scan(
+			&conektaUser.ConektaId)
+		if err != nil {
+			log.Panic(err)
+		}
+	}
+
+	rows.Close()
+
+	return conektaUser.ConektaId.String
+
 }

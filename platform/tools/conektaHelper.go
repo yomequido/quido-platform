@@ -50,8 +50,6 @@ func CreateCheckout() (string, string) {
 
 	bearerToken := base64.StdEncoding.EncodeToString([]byte(key + ":"))
 
-	log.Print(bearerToken)
-
 	var bodyString = `{
 		"checkout": {
 		"returns_control_on": "Token"
@@ -94,26 +92,60 @@ type Checkout struct {
 
 func GetConektaPaymentMethods(conektaId string) models.PaymentMethods {
 
-	conekta.APIKey = os.Getenv("CONEKTA_API")
+	var urlStr = "https://api.conekta.io/customers/" + conektaId
 
-	paymenthMethods, err := paymentsource.All(conektaId)
+	key := os.Getenv("CONEKTA_API")
+
+	bearerToken := base64.StdEncoding.EncodeToString([]byte(key + ":"))
+
+	client := &http.Client{}
+	r, _ := http.NewRequest("GET", urlStr, nil)
+	r.Header.Add("Authorization", "Basic "+bearerToken)
+	r.Header.Add("Content-Type", "application/json")
+	r.Header.Add("Accept", "application/vnd.conekta-v2.0.0+json")
+
+	resp, err := client.Do(r)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	log.Print(paymenthMethods)
-	var paymentMethodMap models.PaymentMethods
+	defer resp.Body.Close()
 
-	for _, paymentMethod := range paymenthMethods.Data {
-		if paymentMethod.PaymentType == "card" {
-			newCard := models.PaymentMethod{Type: "card", CardEnding: paymentMethod.Last4, CardToken: paymentMethod.ID, Default: paymentMethod.Default}
-			paymentMethodMap.CardPaymentMethods = append(paymentMethodMap.CardPaymentMethods, newCard)
-		} else if paymentMethod.PaymentType == "oxxo_recurrent" {
-			paymentMethodMap.OxxoPaymentMethod = models.PaymentMethod{Type: "oxxo_recurrent", Reference: paymentMethod.ID}
-		} else if paymentMethod.PaymentType == "spei_recurrent" {
-			paymentMethodMap.OxxoPaymentMethod = models.PaymentMethod{Type: "spei_recurrent", Reference: paymentMethod.ID}
+	var customer models.ConektaCustomer
+
+	json.NewDecoder(resp.Body).Decode(&customer)
+
+	log.Print(customer.String())
+
+	var paymentMethods models.PaymentMethods
+
+	for _, paymentMethod := range customer.PaymentSources.Data {
+		if paymentMethod.Type == "card" {
+			paymentMethods.CardPaymentMethods = append(paymentMethods.CardPaymentMethods, paymentMethod)
+		} else if paymentMethod.Type == "oxxo_recurrent" {
+			paymentMethods.OxxoPaymentMethod = paymentMethod
+		} else if paymentMethod.Type == "spei_recurrent" {
+			paymentMethods.SpeiPaymentMethod = paymentMethod
 		}
 	}
 
-	return paymentMethodMap
+	return paymentMethods
+}
+
+func CreateCard(conektaUser string, cardToken string) bool {
+	conekta.APIKey = os.Getenv("CONEKTA_API")
+
+	paymentSourceParams := &conekta.PaymentSourceCreateParams{
+		TokenID:     cardToken,
+		PaymentType: "card",
+	}
+
+	_, err := paymentsource.Create(conektaUser, paymentSourceParams)
+
+	if err != nil {
+		log.Panic(err)
+		return false
+	}
+
+	return true
 }
