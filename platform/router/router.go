@@ -31,7 +31,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"https://api.quido.mx", "https://www.api.quido.mx", "https://quido.mx", "https://www.quido.mx"},
 		AllowMethods:     []string{"GET", "POST", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"*"},
+		AllowHeaders:     []string{"Content-Type","*"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
